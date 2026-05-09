@@ -1,0 +1,1026 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Systemic Risk Monitor</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+/* ── CONFIG ── swap API keys here when wiring live feeds */
+:root {
+  --bg:        #0d0d0d;
+  --bg2:       #141414;
+  --bg3:       #1a1a1a;
+  --border:    rgba(255,255,255,0.07);
+  --border2:   rgba(255,255,255,0.12);
+  --text:      #e8e6e0;
+  --text2:     #888780;
+  --text3:     #555450;
+  --red:       #c0392b;
+  --red-soft:  rgba(192,57,43,0.15);
+  --amber:     #b7791f;
+  --amber-soft:rgba(183,121,31,0.15);
+  --green:     #276749;
+  --green-soft:rgba(39,103,73,0.15);
+  --font-head: 'DM Mono', 'Courier New', monospace;
+  --font-body: 'DM Sans', system-ui, sans-serif;
+  --radius:    6px;
+  --radius-lg: 10px;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: 13px;
+  line-height: 1.5;
+  min-height: 100vh;
+}
+
+/* ── GOOGLE FONTS ── */
+@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&display=swap');
+
+/* ── LAYOUT ── */
+.page { max-width: 1280px; margin: 0 auto; padding: 0 24px 48px; }
+
+/* ── TOP NAV ── */
+nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 0 16px;
+  border-bottom: 0.5px solid var(--border);
+  margin-bottom: 20px;
+}
+.nav-brand { display: flex; align-items: baseline; gap: 10px; }
+.nav-name {
+  font-family: var(--font-head);
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  color: var(--text);
+  text-transform: uppercase;
+}
+.nav-sub { font-size: 10px; color: var(--text3); letter-spacing: 0.06em; text-transform: uppercase; }
+.nav-right { display: flex; align-items: center; gap: 14px; }
+.live-indicator { display: flex; align-items: center; gap: 6px; }
+.live-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--red); animation: blink 2s infinite; }
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+.live-text { font-size: 10px; color: var(--text3); letter-spacing: 0.05em; text-transform: uppercase; }
+.nav-ts { font-size: 10px; color: var(--text3); font-family: var(--font-head); }
+
+/* ── HERO ── */
+.hero {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 0;
+  background: var(--bg2);
+  border: 0.5px solid var(--border);
+  border-radius: var(--radius-lg);
+  margin-bottom: 14px;
+  overflow: hidden;
+}
+.hero-score {
+  padding: 24px 28px;
+  border-right: 0.5px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-width: 140px;
+}
+.score-num {
+  font-family: var(--font-head);
+  font-size: 72px;
+  font-weight: 500;
+  line-height: 1;
+  color: var(--red);
+  letter-spacing: -2px;
+}
+.score-label {
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text3);
+  margin-top: 6px;
+}
+.score-delta {
+  font-size: 11px;
+  color: var(--red);
+  margin-top: 4px;
+  font-family: var(--font-head);
+}
+.hero-center { padding: 20px 24px; display: flex; flex-direction: column; justify-content: space-between; gap: 12px; }
+.hero-status { display: flex; align-items: center; gap: 8px; }
+.status-pill {
+  font-size: 10px;
+  font-weight: 500;
+  padding: 3px 10px;
+  border-radius: 3px;
+  background: var(--red-soft);
+  color: #e57373;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  border: 0.5px solid rgba(192,57,43,0.3);
+}
+.hero-desc { font-size: 12px; color: var(--text2); }
+.gauge-wrap { display: flex; flex-direction: column; gap: 4px; }
+.gauge-track {
+  height: 5px;
+  border-radius: 3px;
+  background: var(--bg3);
+  position: relative;
+  overflow: hidden;
+}
+.gauge-fill {
+  height: 100%;
+  width: 68%;
+  background: var(--red);
+  border-radius: 3px;
+}
+.gauge-labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 9px;
+  color: var(--text3);
+  font-family: var(--font-head);
+}
+.coupling-tags { display: flex; flex-wrap: wrap; gap: 5px; }
+.ctag {
+  font-size: 9px;
+  padding: 2px 8px;
+  border-radius: 3px;
+  border: 0.5px solid;
+  letter-spacing: 0.03em;
+}
+.ctag-r { background: var(--red-soft); color: #e57373; border-color: rgba(192,57,43,0.25); }
+.ctag-a { background: var(--amber-soft); color: #d4a54a; border-color: rgba(183,121,31,0.25); }
+.ctag-g { background: var(--green-soft); color: #4caf7d; border-color: rgba(39,103,73,0.25); }
+.hero-right {
+  padding: 20px 24px;
+  border-left: 0.5px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 160px;
+}
+.hero-stat { display: flex; flex-direction: column; gap: 3px; }
+.hs-label { font-size: 9px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.07em; }
+.hs-val { font-family: var(--font-head); font-size: 20px; font-weight: 500; }
+.hs-sub { font-size: 10px; color: var(--text3); }
+
+/* ── STAT ROW ── */
+.stat-row {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.stat-card {
+  background: var(--bg2);
+  border: 0.5px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+}
+.sc-label { font-size: 9px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 5px; }
+.sc-val { font-family: var(--font-head); font-size: 22px; font-weight: 500; line-height: 1; }
+.sc-sub { font-size: 10px; color: var(--text3); margin-top: 3px; }
+
+/* ── DOMAIN RADAR ── */
+.radar-section {
+  background: var(--bg2);
+  border: 0.5px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 16px;
+  margin-bottom: 14px;
+}
+.section-label {
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text3);
+  margin-bottom: 14px;
+  font-family: var(--font-head);
+}
+.radar-grid {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 8px;
+  align-items: end;
+}
+.radar-col { display: flex; flex-direction: column; align-items: center; gap: 5px; }
+.radar-bar-track {
+  width: 100%;
+  height: 80px;
+  background: var(--bg3);
+  border-radius: 3px;
+  display: flex;
+  align-items: flex-end;
+  overflow: hidden;
+}
+.radar-bar-fill { width: 100%; border-radius: 2px; transition: height 0.6s ease; }
+.radar-val { font-family: var(--font-head); font-size: 11px; font-weight: 500; }
+.radar-name { font-size: 9px; color: var(--text3); text-align: center; line-height: 1.3; letter-spacing: 0.03em; }
+
+/* ── DOMAIN PANELS ── */
+.domains-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.domain-panel {
+  background: var(--bg2);
+  border: 0.5px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+.dp-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-bottom: 0.5px solid var(--border);
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.15s;
+}
+.dp-header:hover { background: var(--bg3); }
+.dp-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+.dp-name { font-size: 12px; font-weight: 500; flex: 1; }
+.dp-weight { font-size: 9px; color: var(--text3); font-family: var(--font-head); }
+.dp-score { font-family: var(--font-head); font-size: 14px; font-weight: 500; }
+.dp-chevron { font-size: 10px; color: var(--text3); transition: transform 0.2s; }
+.dp-chevron.open { transform: rotate(180deg); }
+.dp-body { padding: 6px 14px 8px; }
+.ind-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 0;
+  border-bottom: 0.5px solid var(--border);
+}
+.ind-row:last-child { border-bottom: none; }
+.cb-tag {
+  font-size: 8px;
+  padding: 1px 4px;
+  border-radius: 2px;
+  background: var(--red-soft);
+  color: #e57373;
+  border: 0.5px solid rgba(192,57,43,0.3);
+  flex-shrink: 0;
+  font-family: var(--font-head);
+}
+.ind-name { font-size: 11px; color: var(--text); flex: 1; line-height: 1.3; }
+.ind-source { font-size: 9px; color: var(--text3); }
+.sparkline { flex-shrink: 0; }
+.ind-bar-wrap { width: 60px; flex-shrink: 0; }
+.ind-track { height: 3px; border-radius: 2px; background: var(--bg3); }
+.ind-fill-r { height: 3px; border-radius: 2px; background: var(--red); }
+.ind-fill-a { height: 3px; border-radius: 2px; background: var(--amber); }
+.ind-fill-g { height: 3px; border-radius: 2px; background: var(--green); }
+.ind-val { font-family: var(--font-head); font-size: 10px; font-weight: 500; min-width: 22px; text-align: right; flex-shrink: 0; }
+
+/* ── TWO-COLUMN BOTTOM ── */
+.bottom-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+/* ── COUPLING FEED ── */
+.feed-panel {
+  background: var(--bg2);
+  border: 0.5px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 16px;
+}
+.event-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 8px 0;
+  border-bottom: 0.5px solid var(--border);
+}
+.event-row:last-child { border-bottom: none; }
+.ev-sev {
+  font-size: 8px;
+  padding: 2px 6px;
+  border-radius: 2px;
+  font-weight: 500;
+  flex-shrink: 0;
+  margin-top: 2px;
+  font-family: var(--font-head);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  border: 0.5px solid;
+}
+.sev-hi { background: var(--red-soft); color: #e57373; border-color: rgba(192,57,43,0.3); }
+.sev-md { background: var(--amber-soft); color: #d4a54a; border-color: rgba(183,121,31,0.3); }
+.sev-lo { background: var(--green-soft); color: #4caf7d; border-color: rgba(39,103,73,0.3); }
+.ev-body { flex: 1; }
+.ev-text { font-size: 11px; color: var(--text); line-height: 1.5; }
+.ev-domains { font-size: 9px; color: var(--text3); margin-top: 2px; font-family: var(--font-head); }
+.ev-ts { font-size: 9px; color: var(--text3); white-space: nowrap; flex-shrink: 0; margin-top: 3px; font-family: var(--font-head); }
+
+/* ── SCORING PANEL ── */
+.scoring-panel {
+  background: var(--bg2);
+  border: 0.5px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.score-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 0;
+  border-bottom: 0.5px solid var(--border);
+}
+.score-row:last-child { border-bottom: none; }
+.sr-swatch { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+.sr-name { font-size: 11px; flex: 1; }
+.sr-score { font-family: var(--font-head); font-size: 11px; width: 24px; text-align: right; flex-shrink: 0; }
+.sr-x { font-size: 10px; color: var(--text3); width: 8px; text-align: center; }
+.sr-wt { font-size: 11px; color: var(--text2); width: 36px; font-family: var(--font-head); }
+.sr-eq { font-size: 10px; color: var(--text3); width: 8px; text-align: center; }
+.sr-contrib { font-family: var(--font-head); font-size: 11px; font-weight: 500; width: 32px; text-align: right; }
+.sr-bar-wrap { width: 50px; flex-shrink: 0; }
+.sr-bar-track { height: 3px; border-radius: 2px; background: var(--bg3); }
+.sr-stress { font-size: 8px; padding: 1px 5px; border-radius: 2px; border: 0.5px solid; }
+.formula-block {
+  background: var(--bg3);
+  border-radius: var(--radius);
+  padding: 10px 12px;
+  font-family: var(--font-head);
+  font-size: 10px;
+  line-height: 2;
+  color: var(--text2);
+}
+.fh { color: #e57373; }
+.fa { color: #d4a54a; }
+.fg { color: #4caf7d; }
+.fc { color: var(--text3); }
+.score-total {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding-top: 8px;
+  border-top: 0.5px solid var(--border2);
+}
+.st-label { font-size: 11px; color: var(--text2); }
+.st-val { font-family: var(--font-head); font-size: 28px; font-weight: 500; color: var(--red); }
+
+/* ── HISTORY CHART ── */
+.history-panel {
+  background: var(--bg2);
+  border: 0.5px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 16px;
+  margin-bottom: 14px;
+}
+
+/* ── FOOTER ── */
+footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 14px;
+  border-top: 0.5px solid var(--border);
+  gap: 16px;
+}
+.footer-sources { font-size: 9px; color: var(--text3); line-height: 1.6; flex: 1; font-family: var(--font-head); }
+.footer-note { font-size: 9px; color: var(--text3); text-align: right; }
+.api-status { display: flex; gap: 8px; flex-wrap: wrap; }
+.api-pill {
+  font-size: 9px;
+  padding: 2px 8px;
+  border-radius: 3px;
+  border: 0.5px solid var(--border2);
+  color: var(--text3);
+  font-family: var(--font-head);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.api-dot { width: 4px; height: 4px; border-radius: 50%; background: var(--text3); }
+.api-dot.live { background: #4caf7d; }
+.api-dot.mock { background: var(--amber); }
+</style>
+</head>
+<body>
+
+<div class="page">
+
+  <!-- NAV -->
+  <nav>
+    <div class="nav-brand">
+      <span class="nav-name">Systemic Risk Monitor</span>
+      <span class="nav-sub">Global · 8 domains · 50 indicators</span>
+    </div>
+    <div class="nav-right">
+      <div class="api-status" id="apiStatus"></div>
+      <div class="live-indicator">
+        <div class="live-dot"></div>
+        <span class="live-text">Mock data</span>
+      </div>
+      <span class="nav-ts" id="navTs"></span>
+    </div>
+  </nav>
+
+  <!-- HERO -->
+  <div class="hero">
+    <div class="hero-score">
+      <div class="score-num" id="heroScore">—</div>
+      <div class="score-label">Composite risk</div>
+      <div class="score-delta" id="heroDelta">—</div>
+    </div>
+    <div class="hero-center">
+      <div class="hero-status">
+        <span class="status-pill" id="heroStatus">—</span>
+        <span class="hero-desc" id="heroDesc">—</span>
+      </div>
+      <div class="gauge-wrap">
+        <div class="gauge-track"><div class="gauge-fill" id="heroGauge"></div></div>
+        <div class="gauge-labels">
+          <span>Stable 0</span><span>Guarded 25</span><span>Elevated 50</span><span>Critical 75</span><span>100</span>
+        </div>
+      </div>
+      <div class="coupling-tags" id="heroCoupling"></div>
+    </div>
+    <div class="hero-right">
+      <div class="hero-stat">
+        <div class="hs-label">Domains in stress</div>
+        <div class="hs-val" id="hsStress" style="color:var(--red)">—</div>
+        <div class="hs-sub" id="hsStressSub">of 8 domains ≥ 60</div>
+      </div>
+      <div class="hero-stat">
+        <div class="hs-label">Coupling events</div>
+        <div class="hs-val" id="hsCoupling" style="color:var(--amber)">—</div>
+        <div class="hs-sub">active interactions</div>
+      </div>
+      <div class="hero-stat">
+        <div class="hs-label">Circuit breakers</div>
+        <div class="hs-val" id="hsCB" style="color:var(--green)">0</div>
+        <div class="hs-sub">all clear</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- STAT ROW -->
+  <div class="stat-row" id="statRow"></div>
+
+  <!-- DOMAIN RADAR -->
+  <div class="radar-section">
+    <div class="section-label">Domain overview — scores 0–100</div>
+    <div class="radar-grid" id="radarGrid"></div>
+  </div>
+
+  <!-- DOMAIN PANELS -->
+  <div class="domains-grid" id="domainsGrid"></div>
+
+  <!-- BOTTOM GRID: COUPLING + SCORING -->
+  <div class="bottom-grid">
+    <div class="feed-panel">
+      <div class="section-label" style="margin-bottom:10px">Active coupling events</div>
+      <div id="couplingFeed"></div>
+    </div>
+    <div class="scoring-panel">
+      <div class="section-label" style="margin-bottom:0">Composite score breakdown</div>
+      <div id="scoreRows"></div>
+      <div class="formula-block" id="formulaBlock"></div>
+      <div class="score-total">
+        <span class="st-label">Final composite (Base × M, cap 100)</span>
+        <span class="st-val" id="finalScore">—</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- HISTORY -->
+  <div class="history-panel">
+    <div class="section-label" style="margin-bottom:12px">30-day composite history</div>
+    <div style="position:relative;width:100%;height:140px">
+      <canvas id="histChart" role="img" aria-label="Line chart of composite risk score over 30 days">30-day composite risk score history.</canvas>
+    </div>
+  </div>
+
+  <!-- FOOTER -->
+  <footer>
+    <div class="footer-sources">
+      Sources: BIS · IIF · IMF DSA · NOAA · Copernicus · FAO · WFP · IPC · USDA · ACLED · FAS · SIPRI ·
+      V-Dem · CISA · ENISA · Lloyd's · IMO · MarineTraffic · Freightos · USGS · LME · RIPE NCC ·
+      Cloudflare Radar · NASA FIRMS · NSIDC · IDMC · GRACE-FO · WHO · ProMED · ECDC · RSF ·
+      Edelman · GPSJam · EUROCONTROL · DeFiLlama · IPBES · ENTSO-E · NERC
+    </div>
+    <div class="footer-note">
+      Prototype — mock data only<br>
+      Wire live feeds in CONFIG.FEEDS below
+    </div>
+  </footer>
+
+</div><!-- /page -->
+
+<script>
+/* ═══════════════════════════════════════════════════════════════
+   CONFIG — edit this block to wire live API feeds
+   Each feed entry: { url, transform: (raw) => 0–100 score }
+═══════════════════════════════════════════════════════════════ */
+const CONFIG = {
+  REFRESH_INTERVAL_MS: 300000, // 5 minutes
+  FEEDS: {
+    // Example live feed entries (uncomment + fill URL when ready):
+    // noaa_drought:   { url: 'https://droughtmonitor.unl.edu/DmData/GISData.aspx?...', transform: raw => /* normalize */ 0 },
+    // nasa_firms:     { url: 'https://firms.modaps.eosdis.nasa.gov/api/area/...', transform: raw => 0 },
+    // cloudflare_bgp: { url: 'https://api.cloudflare.com/client/v4/radar/bgp/...', transform: raw => 0 },
+    // fao_fpi:        { url: 'https://www.fao.org/worldfoodsituation/foodpricesindex/en/', transform: raw => 0 },
+    // freightos_fbx:  { url: 'https://fbx.freightos.com/api/...', transform: raw => 0 },
+  }
+};
+
+/* ═══════════════════════════════════════════════════════════════
+   DATA — 8 domains, 50 indicators
+   score: 0–100 (100 = worst ever, 0 = best ever)
+   type: 'r' red stress | 'a' amber | 'g' green
+   cb: circuit breaker (overrides composite to 92+ if triggered)
+   leading: true = predicts stress weeks ahead
+═══════════════════════════════════════════════════════════════ */
+const DOMAINS = [
+  {
+    id: 'financial',
+    name: 'Financial system',
+    shortName: 'Finance',
+    color: '#c0392b',
+    weight: 20,
+    metrics: [
+      { n:'Global debt-to-GDP (sovereign+corp+HH)',  src:'IIF Global Debt Monitor',       v:81, type:'r', cb:false, leading:false },
+      { n:'Dollar funding stress (FX swap basis)',   src:'BIS / Bloomberg',                v:74, type:'r', cb:false, leading:true  },
+      { n:'Global credit spread index (IG+HY)',      src:'BIS / Markit',                   v:78, type:'r', cb:false, leading:true  },
+      { n:'Major bank CDS composite',                src:'Bloomberg / Markit',             v:71, type:'r', cb:false, leading:true  },
+      { n:'Global repo market stress index',         src:'DTCC / BIS',                     v:65, type:'r', cb:false, leading:true  },
+      { n:'G20 sovereign debt service ratio',        src:'IMF DSA',                        v:62, type:'r', cb:false, leading:false },
+      { n:'Stablecoin / crypto collateral stress',   src:'Glassnode / DeFiLlama',          v:48, type:'a', cb:false, leading:true  },
+      { n:'Cross-border capital flow reversal rate', src:'IIF',                            v:61, type:'r', cb:false, leading:true  },
+      { n:'Equity volatility composite (VIX+VSTOXX+VXJ)', src:'CBOE / Eurex',             v:68, type:'r', cb:false, leading:true  },
+      { n:'Major exchange halt trigger',             src:'NYSE / LSE / TSE',               v:0,  type:'g', cb:true,  leading:false },
+    ]
+  },
+  {
+    id: 'geopolitical',
+    name: 'Geopolitical',
+    shortName: 'Geopolit.',
+    color: '#8b1a1a',
+    weight: 17,
+    metrics: [
+      { n:'Armed conflict intensity index',          src:'ACLED',                          v:74, type:'r', cb:false, leading:true  },
+      { n:'Nuclear arsenal modernization index',     src:'FAS / SIPRI',                    v:55, type:'a', cb:false, leading:false },
+      { n:'Nuclear alert level (DEFCON proxy)',      src:'Bulletin of Atomic Scientists',  v:5,  type:'g', cb:true,  leading:false },
+      { n:'Global sanctions escalation rate',        src:'OFAC / EU / UN',                 v:69, type:'r', cb:false, leading:true  },
+      { n:'Critical infrastructure cyberattacks',   src:'CISA / ENISA',                   v:72, type:'r', cb:false, leading:true  },
+      { n:'TSMC/semiconductor geography concentration', src:'SEMI / industry reports',    v:88, type:'r', cb:false, leading:false },
+      { n:'Chokepoint disruption index',             src:"Lloyd's / IMO",                  v:66, type:'r', cb:false, leading:true  },
+      { n:'Democratic backsliding index',            src:'V-Dem',                          v:55, type:'a', cb:false, leading:false },
+    ]
+  },
+  {
+    id: 'climate',
+    name: 'Climate & ecological',
+    shortName: 'Climate',
+    color: '#276749',
+    weight: 15,
+    metrics: [
+      { n:'Drought severity (top crop regions)',     src:'NOAA / Copernicus',              v:74, type:'r', cb:false, leading:true  },
+      { n:'Active wildfire area (30-day global)',    src:'NASA FIRMS',                     v:55, type:'a', cb:false, leading:false },
+      { n:'Sea surface temperature anomaly',         src:'NOAA',                           v:59, type:'a', cb:false, leading:true  },
+      { n:'Arctic sea ice extent deviation',         src:'NSIDC',                          v:62, type:'r', cb:false, leading:false },
+      { n:'Permafrost thaw rate (methane proxy)',    src:'NSIDC / Copernicus',             v:58, type:'a', cb:false, leading:false },
+      { n:'Flood displacement index (90-day)',       src:'IDMC',                           v:51, type:'a', cb:false, leading:false },
+      { n:'Wildfire smoke AQI (pop-weighted)',       src:'AirNow / Copernicus CAMS',       v:44, type:'a', cb:false, leading:false },
+    ]
+  },
+  {
+    id: 'food',
+    name: 'Food & water',
+    shortName: 'Food',
+    color: '#b7791f',
+    weight: 14,
+    metrics: [
+      { n:'Global grain reserve (days of consumption)', src:'USDA / FAO',                 v:61, type:'r', cb:false, leading:true  },
+      { n:'FAO food price index',                    src:'FAO',                            v:67, type:'r', cb:false, leading:true  },
+      { n:'IPC Phase 3+ famine (# people at risk)', src:'IPC / WFP',                      v:70, type:'r', cb:false, leading:false },
+      { n:'Fertilizer price stress index',           src:'World Bank',                     v:53, type:'a', cb:false, leading:true  },
+      { n:'Major river flow anomaly',                src:'GloFAS / GRDC',                  v:55, type:'a', cb:false, leading:true  },
+      { n:'Insect biomass / pollinator collapse',    src:'IPBES / national programs',      v:63, type:'r', cb:false, leading:false },
+      { n:'Groundwater depletion rate (key aquifers)', src:'GRACE-FO / NASA',             v:42, type:'a', cb:false, leading:false },
+    ]
+  },
+  {
+    id: 'supply',
+    name: 'Supply chain',
+    shortName: 'Supply',
+    color: '#2c5282',
+    weight: 13,
+    metrics: [
+      { n:'Global shipping container rate (FBX)',    src:'Freightos',                      v:63, type:'r', cb:false, leading:true  },
+      { n:'Semiconductor lead time index',           src:'Susquehanna / industry',         v:79, type:'r', cb:false, leading:true  },
+      { n:'Major port congestion score',             src:'MarineTraffic / Project44',      v:58, type:'a', cb:false, leading:true  },
+      { n:'Critical mineral price stress',           src:'LME / USGS',                    v:67, type:'r', cb:false, leading:true  },
+      { n:'Major pipeline / LNG terminal disruption', src:'ENTSOG / IEA',                 v:44, type:'a', cb:false, leading:false },
+      { n:'Power grid frequency stability',          src:'ENTSO-E / NERC',                 v:28, type:'g', cb:false, leading:true  },
+    ]
+  },
+  {
+    id: 'health',
+    name: 'Health & biosecurity',
+    shortName: 'Health',
+    color: '#553c9a',
+    weight: 10,
+    metrics: [
+      { n:'Novel pathogen signals (ProMED+HealthMap)', src:'ProMED / HealthMap',           v:22, type:'g', cb:false, leading:true  },
+      { n:'WHO emergency alert level',               src:'WHO',                            v:0,  type:'g', cb:true,  leading:false },
+      { n:'Global hospital capacity utilization',    src:'WHO / national ministries',      v:34, type:'g', cb:false, leading:false },
+      { n:'AMR resistance spread rate index',        src:'WHO GLASS',                      v:52, type:'a', cb:false, leading:false },
+      { n:'Vaccine supply coverage gap',             src:'UNICEF / Gavi',                  v:28, type:'g', cb:false, leading:false },
+      { n:'Wastewater pathogen surveillance signal', src:'CDC / ECDC',                     v:19, type:'g', cb:false, leading:true  },
+    ]
+  },
+  {
+    id: 'tech',
+    name: 'Technology & AI',
+    shortName: 'Tech/AI',
+    color: '#0f766e',
+    weight: 6,
+    metrics: [
+      { n:'Hyperscaler concentration risk (AWS+Azure+GCP)', src:'Cloudflare Radar / Kentik', v:71, type:'r', cb:false, leading:false },
+      { n:'Internet backbone disruptions (BGP anomalies)', src:'RIPE NCC / Cloudflare',   v:31, type:'g', cb:false, leading:true  },
+      { n:'GPS/PNT disruption events (jamming+spoofing)', src:'GPSJam / EUROCONTROL',     v:58, type:'a', cb:false, leading:true  },
+      { n:'AI model concentration / SPOF index',     src:'Industry / research',            v:62, type:'r', cb:false, leading:false },
+      { n:'Critical system cyberattack severity',    src:'CISA / ENISA',                   v:55, type:'a', cb:false, leading:true  },
+    ]
+  },
+  {
+    id: 'social',
+    name: 'Social cohesion',
+    shortName: 'Social',
+    color: '#5f5e5a',
+    weight: 5,
+    metrics: [
+      { n:'Global protest intensity index',          src:'ACLED / GDELT',                  v:58, type:'a', cb:false, leading:true  },
+      { n:'Press freedom (# countries restricting)', src:'RSF',                            v:61, type:'r', cb:false, leading:false },
+      { n:'Disinformation spread rate index',        src:'DFRLab / EU DisinfoLab',         v:54, type:'a', cb:false, leading:true  },
+      { n:'Trust in institutions composite',         src:'Edelman Trust Barometer',        v:47, type:'a', cb:false, leading:false },
+    ]
+  }
+];
+
+const COUPLING_EVENTS = [
+  { sev:'hi', text:'Yangtze drought → semiconductor fab water shortage → chip lead times +34% → defense procurement delays accumulating across 6 NATO members', domains:'Climate × Supply chain × Geopolitical', ts:'2h ago' },
+  { sev:'hi', text:'Italian sovereign spread past 280bps; Argentina parallel rate gap 61% → EM capital outflow accelerating → dollar funding stress rising in 12 frontier markets', domains:'Financial × Geopolitical', ts:'4h ago' },
+  { sev:'hi', text:'Strait of Hormuz tanker incident — 3 vessels diverted, Lloyd\'s insurer war-risk surcharge activated, Brent-WTI spread widening', domains:'Geopolitical × Supply chain × Financial', ts:'6h ago' },
+  { sev:'hi', text:'TSMC Hsinchu facility water rationing order (third consecutive quarter) — leading-edge N3 wafer output reduced 8%; downstream AI chip shortage signal strengthening', domains:'Geopolitical × Supply chain × Tech/AI', ts:'7h ago' },
+  { sev:'md', text:'Black Sea grain corridor at 43% capacity → North Africa import stress → political instability signals rising in Egypt, Tunisia, Libya, Jordan', domains:'Food & water × Geopolitical × Social', ts:'9h ago' },
+  { sev:'md', text:'Texas grid reserve margin projected below 8% during June 14–18 heat dome window; ERCOT demand response pre-activation issued', domains:'Supply chain × Climate', ts:'12h ago' },
+  { sev:'md', text:'Critical mineral (lithium carbonate) 90-day price +38%; cobalt +22% — EV and grid storage supply chains showing downstream stress signals', domains:'Supply chain × Financial', ts:'1d ago' },
+  { sev:'md', text:'GPS jamming events in Baltic region up 340% YTD — affecting 14 commercial flight corridors and 3 major port approaches; maritime insurance costs rising', domains:'Tech/AI × Geopolitical × Supply chain', ts:'1d ago' },
+  { sev:'lo', text:'H5N1 clade detected in dairy cattle across 3 new US states; wastewater signal elevated in Iowa, Wisconsin, Minnesota — WHO monitoring elevated to Phase 2 watch', domains:'Health × Food & water', ts:'2d ago' },
+  { sev:'lo', text:'Edelman Trust Barometer: institutional confidence below 2009 GFC lows in Brazil, UK, South Korea, India — social license for emergency policy response weakening', domains:'Social × Geopolitical × Financial', ts:'3d ago' },
+];
+
+/* ═══════════════════════════════════════════════════════════════
+   SCORING ENGINE
+═══════════════════════════════════════════════════════════════ */
+function computeScores() {
+  // Domain scores: simple weighted average of indicator values
+  const domainScores = DOMAINS.map(d => {
+    const vals = d.metrics.map(m => m.v);
+    return Math.round(vals.reduce((a,b) => a+b, 0) / vals.length);
+  });
+
+  // Base composite: weighted average of domain scores
+  const totalWeight = DOMAINS.reduce((a,d) => a + d.weight, 0);
+  const base = DOMAINS.reduce((a,d,i) => a + (domainScores[i] * d.weight / totalWeight), 0);
+
+  // Coupling count: domains ≥ 60
+  const stressedDomains = domainScores.filter(s => s >= 60);
+  const C = stressedDomains.length;
+  const M = 1 + (Math.max(0, C - 1) * 0.06);
+
+  // Final composite
+  const composite = Math.min(100, Math.round(base * M));
+
+  // Circuit breaker check
+  const cbTriggered = DOMAINS.some(d => d.metrics.some(m => m.cb && m.v >= 80));
+
+  return { domainScores, base: Math.round(base * 10) / 10, C, M: Math.round(M * 100) / 100, composite: cbTriggered ? Math.max(92, composite) : composite, cbTriggered };
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   RENDER
+═══════════════════════════════════════════════════════════════ */
+function statusLabel(score) {
+  if (score >= 80) return 'Critical';
+  if (score >= 65) return 'Elevated';
+  if (score >= 45) return 'Guarded';
+  return 'Stable';
+}
+
+function scoreColor(v) {
+  if (v >= 65) return 'var(--red)';
+  if (v >= 45) return 'var(--amber)';
+  return 'var(--green)';
+}
+
+function fillClass(type) {
+  return type === 'r' ? 'ind-fill-r' : type === 'a' ? 'ind-fill-a' : 'ind-fill-g';
+}
+
+function renderNav() {
+  const now = new Date();
+  document.getElementById('navTs').textContent =
+    now.toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'}) +
+    ' · ' + now.toLocaleTimeString('en-US', {hour:'2-digit', minute:'2-digit', timeZoneName:'short'});
+
+  const apis = [
+    { name:'NOAA', live: false },
+    { name:'FAO', live: false },
+    { name:'NASA FIRMS', live: false },
+    { name:'Freightos', live: false },
+    { name:'Cloudflare', live: false },
+  ];
+  document.getElementById('apiStatus').innerHTML = apis.map(a =>
+    `<div class="api-pill"><span class="api-dot ${a.live ? 'live' : 'mock'}"></span>${a.name}</div>`
+  ).join('');
+}
+
+function renderHero(scores) {
+  const { composite, C, M, cbTriggered } = scores;
+  document.getElementById('heroScore').textContent = composite;
+  document.getElementById('heroDelta').textContent = '↑ 4.2 pts / 7 days';
+  document.getElementById('heroStatus').textContent = cbTriggered ? 'Circuit Breaker' : statusLabel(composite);
+  document.getElementById('heroDesc').textContent =
+    `${C} of 8 domains in stress · coupling multiplier active (M = ${M.toFixed(2)})`;
+  document.getElementById('heroGauge').style.width = composite + '%';
+  document.getElementById('hsStress').textContent = C;
+  document.getElementById('hsCoupling').textContent = COUPLING_EVENTS.length;
+
+  const stressedNames = DOMAINS.filter((d,i) => scores.domainScores[i] >= 60).map(d => d.shortName);
+  const stableNames   = DOMAINS.filter((d,i) => scores.domainScores[i] < 45).map(d => d.shortName);
+  const amberNames    = DOMAINS.filter((d,i) => scores.domainScores[i] >= 45 && scores.domainScores[i] < 60).map(d => d.shortName);
+
+  const tags = [
+    ...stressedNames.map(n => `<span class="ctag ctag-r">${n} ↑ high</span>`),
+    ...amberNames.map(n   => `<span class="ctag ctag-a">${n} ↑ med</span>`),
+    ...stableNames.map(n  => `<span class="ctag ctag-g">${n} stable</span>`),
+    `<span style="font-size:9px;color:var(--text3);align-self:center">${C} domains ≥ 60 → M = ${M.toFixed(2)}</span>`
+  ];
+  document.getElementById('heroCoupling').innerHTML = tags.join('');
+}
+
+function renderStats(scores) {
+  const { composite, C } = scores;
+  const stats = [
+    { label:'Composite score',    val: composite, sub: statusLabel(composite), color: scoreColor(composite) },
+    { label:'Domains in stress',  val: C,         sub: 'scoring ≥ 60',         color: C>=3?'var(--red)':'var(--amber)' },
+    { label:'Coupling events',    val: COUPLING_EVENTS.length, sub:'active interactions', color:'var(--amber)' },
+    { label:'Circuit breakers',   val: 0,          sub:'all clear',             color:'var(--green)' },
+    { label:'7-day momentum',     val: '+4.2',     sub:'pts · fast-rising',     color:'var(--red)' },
+  ];
+  document.getElementById('statRow').innerHTML = stats.map(s => `
+    <div class="stat-card">
+      <div class="sc-label">${s.label}</div>
+      <div class="sc-val" style="color:${s.color}">${s.val}</div>
+      <div class="sc-sub">${s.sub}</div>
+    </div>
+  `).join('');
+}
+
+function renderRadar(scores) {
+  document.getElementById('radarGrid').innerHTML = DOMAINS.map((d,i) => {
+    const s = scores.domainScores[i];
+    const vc = s>=65?'var(--red)':s>=45?'var(--amber)':'var(--green)';
+    return `<div class="radar-col">
+      <div class="radar-bar-track">
+        <div class="radar-bar-fill" style="height:${s}%;background:${d.color};opacity:0.8"></div>
+      </div>
+      <div class="radar-val" style="color:${vc}">${s}</div>
+      <div class="radar-name">${d.shortName}</div>
+    </div>`;
+  }).join('');
+}
+
+function makeSpark(v, color) {
+  const pts = [v-9, v-5, v-7, v+3, v-2, v+1, v].map(x => Math.max(0, Math.min(100, x)));
+  const w = 44, h = 18;
+  const coords = pts.map((p,i) => `${(i/(pts.length-1))*w},${h - (p/100)*h}`).join(' ');
+  return `<svg class="sparkline" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">
+    <polyline points="${coords}" fill="none" stroke="${color}" stroke-width="1.2" opacity="0.6"/>
+    <circle cx="${w}" cy="${h - (v/100)*h}" r="2" fill="${color}" opacity="0.8"/>
+  </svg>`;
+}
+
+function renderDomains(scores) {
+  document.getElementById('domainsGrid').innerHTML = DOMAINS.map((d,i) => {
+    const sc = scores.domainScores[i];
+    const sColor = scoreColor(sc);
+    const rows = d.metrics.map(m => {
+      const vc = scoreColor(m.v);
+      return `<div class="ind-row">
+        ${m.cb ? `<span class="cb-tag">CB</span>` : ''}
+        <div style="flex:1;min-width:0">
+          <div class="ind-name">${m.n}</div>
+          <div class="ind-source">${m.src}${m.leading?' · leading':''}</div>
+        </div>
+        ${makeSpark(m.v, d.color)}
+        <div class="ind-bar-wrap">
+          <div class="ind-track">
+            <div class="${fillClass(m.type)}" style="width:${m.v}%"></div>
+          </div>
+        </div>
+        <span class="ind-val" style="color:${vc}">${m.v}</span>
+      </div>`;
+    }).join('');
+
+    return `<div class="domain-panel">
+      <div class="dp-header" onclick="toggleDomain('${d.id}')">
+        <span class="dp-dot" style="background:${d.color}"></span>
+        <span class="dp-name">${d.name}</span>
+        <span class="dp-weight">wt ${d.weight}%</span>
+        <span class="dp-score" style="color:${sColor}">${sc}</span>
+        <span class="dp-chevron open" id="chev-${d.id}">▾</span>
+      </div>
+      <div class="dp-body" id="body-${d.id}">${rows}</div>
+    </div>`;
+  }).join('');
+}
+
+function toggleDomain(id) {
+  const body = document.getElementById('body-' + id);
+  const chev = document.getElementById('chev-' + id);
+  const open = body.style.display !== 'none';
+  body.style.display = open ? 'none' : 'block';
+  chev.classList.toggle('open', !open);
+}
+
+function renderCoupling() {
+  const sevMap = { hi:['sev-hi','High'], md:['sev-md','Med'], lo:['sev-lo','Low'] };
+  document.getElementById('couplingFeed').innerHTML = COUPLING_EVENTS.map(e => {
+    const [cls, label] = sevMap[e.sev];
+    return `<div class="event-row">
+      <span class="ev-sev ${cls}">${label}</span>
+      <div class="ev-body">
+        <div class="ev-text">${e.text}</div>
+        <div class="ev-domains">${e.domains}</div>
+      </div>
+      <span class="ev-ts">${e.ts}</span>
+    </div>`;
+  }).join('');
+}
+
+function renderScoring(scores) {
+  const { domainScores, base, C, M, composite } = scores;
+  const totalWeight = DOMAINS.reduce((a,d) => a + d.weight, 0);
+
+  document.getElementById('scoreRows').innerHTML = DOMAINS.map((d,i) => {
+    const s = domainScores[i];
+    const contrib = (s * d.weight / totalWeight);
+    const sColor = scoreColor(s);
+    const stressLabel = s>=60?['sr','≥60']:s>=45?['sa','mid']:['sg','ok'];
+    return `<div class="score-row">
+      <span class="sr-swatch" style="background:${d.color}"></span>
+      <span class="sr-name">${d.shortName}</span>
+      <span class="sr-score" style="color:${sColor}">${s}</span>
+      <span class="sr-x">×</span>
+      <span class="sr-wt">${d.weight}%</span>
+      <span class="sr-eq">=</span>
+      <span class="sr-contrib" style="color:${sColor}">${contrib.toFixed(1)}</span>
+      <div class="sr-bar-wrap"><div class="sr-bar-track">
+        <div style="height:3px;border-radius:2px;width:${Math.min(100,contrib*5)}%;background:${d.color};opacity:0.7"></div>
+      </div></div>
+      <span class="sr-stress ${stressLabel[0]}" style="font-size:8px;padding:1px 4px;border-radius:2px;border:0.5px solid">${stressLabel[1]}</span>
+    </div>`;
+  }).join('');
+
+  const stressedList = DOMAINS.filter((d,i) => domainScores[i] >= 60).map(d => `<span class="fh">${domainScores[DOMAINS.indexOf(d)]}</span>`).join(' ');
+
+  document.getElementById('formulaBlock').innerHTML =
+    `<span class="fc">// base weighted avg</span>\n` +
+    `Base = <span class="fa">${base}</span>\n` +
+    `<span class="fc">// domains ≥ 60 → C = ${C}</span>\n` +
+    `M = 1 + (max(0, ${C}−1) × 0.06) = <span class="fh">${M.toFixed(2)}</span>\n` +
+    `<span class="fc">// final (capped 100)</span>\n` +
+    `Composite = min(100, ${base} × ${M.toFixed(2)}) = <span class="fh">${composite}</span>`;
+
+  document.getElementById('finalScore').textContent = composite;
+}
+
+function renderHistory(composite) {
+  // Generate 30 days of simulated history ending at current composite
+  const days = Array.from({length: 30}, (_, i) => {
+    const noise = Math.sin(i * 0.8) * 2.5 + Math.sin(i * 1.4) * 1.8;
+    const trend = (composite - 58) * (i / 29);
+    return Math.round(Math.min(100, Math.max(20, 58 + trend + noise)));
+  });
+  days[29] = composite;
+
+  const labels = Array.from({length: 30}, (_, i) => {
+    const d = new Date();
+    d.setDate(d.getDate() - (29 - i));
+    return i % 5 === 0 ? `${d.getMonth()+1}/${d.getDate()}` : '';
+  });
+
+  new Chart(document.getElementById('histChart'), {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Composite',
+        data: days,
+        borderColor: '#c0392b',
+        borderWidth: 1.5,
+        pointRadius: 0,
+        pointHoverRadius: 3,
+        tension: 0.4,
+        fill: true,
+        backgroundColor: 'rgba(192,57,43,0.08)',
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: '#1a1a1a',
+          borderColor: 'rgba(255,255,255,0.1)',
+          borderWidth: 0.5,
+          titleColor: '#888780',
+          bodyColor: '#e8e6e0',
+          callbacks: { label: ctx => `Score: ${ctx.parsed.y}` }
+        }
+      },
+      scales: {
+        x: {
+          grid: { color: 'rgba(255,255,255,0.04)' },
+          ticks: { font: { size: 9, family: 'DM Mono' }, color: '#555450', maxRotation: 0 }
+        },
+        y: {
+          min: 40, max: 85,
+          grid: { color: 'rgba(255,255,255,0.04)' },
+          ticks: { font: { size: 9, family: 'DM Mono' }, color: '#555450', stepSize: 10 }
+        }
+      }
+    }
+  });
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   LIVE FEED FETCHER (wire real endpoints in CONFIG.FEEDS)
+═══════════════════════════════════════════════════════════════ */
+async function fetchLiveFeeds() {
+  const results = {};
+  for (const [key, feed] of Object.entries(CONFIG.FEEDS)) {
+    try {
+      const res = await fetch(feed.url);
+      const raw = await res.json();
+      results[key] = feed.transform(raw);
+    } catch (e) {
+      console.warn(`Feed ${key} failed:`, e);
+    }
+  }
+  return results;
+  // When ready: apply results to DOMAINS metric values, then re-render
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   INIT
+═══════════════════════════════════════════════════════════════ */
+function init() {
+  renderNav();
+  const scores = computeScores();
+  renderHero(scores);
+  renderStats(scores);
+  renderRadar(scores);
+  renderDomains(scores);
+  renderCoupling();
+  renderScoring(scores);
+  renderHistory(scores.composite);
+
+  // Refresh nav timestamp every minute
+  setInterval(renderNav, 60000);
+
+  // Attempt live feed refresh on interval
+  setInterval(async () => {
+    await fetchLiveFeeds();
+    // Re-render after live data updates (currently no-op until feeds wired)
+  }, CONFIG.REFRESH_INTERVAL_MS);
+}
+
+document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>
