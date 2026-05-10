@@ -256,9 +256,41 @@ body {
   border: 1px solid var(--border);
   border-top: 2px solid var(--score-accent, var(--gold));
   border-radius: 12px;
-  padding: 28px 32px;
+  padding: 0;
   position: relative;
   overflow: hidden;
+  display: grid;
+  grid-template-columns: auto 1px 1fr;
+}
+.composite-card::before {
+  content: '';
+  position: absolute;
+  top: -60px; left: 80px;
+  width: 300px; height: 300px;
+  background: radial-gradient(circle, rgba(200,146,42,0.09) 0%, transparent 60%);
+  pointer-events: none;
+  z-index: 0;
+}
+.composite-num-col {
+  padding: 32px 44px 32px 36px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  position: relative;
+  z-index: 1;
+}
+.composite-divider {
+  background: var(--border);
+  margin: 24px 0;
+}
+.composite-right-col {
+  padding: 28px 36px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 24px;
+  position: relative;
+  z-index: 1;
 }
 .composite-card::before {
   content: '';
@@ -270,20 +302,31 @@ body {
 }
 .composite-eyebrow {
   font-family: var(--font-m);
-  font-size: 10px;
-  letter-spacing: .14em;
+  font-size: 9px;
+  letter-spacing: .16em;
   text-transform: uppercase;
   color: var(--gold);
-  margin-bottom: 12px;
-  opacity: .7;
+  margin-bottom: 16px;
+  opacity: .65;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.composite-eyebrow::before {
+  content: '';
+  display: inline-block;
+  width: 16px;
+  height: 1px;
+  background: var(--gold);
+  opacity: .6;
 }
 .composite-number {
   font-family: var(--font-num);
-  font-size: 140px;
+  font-size: 180px;
   font-weight: 400;
-  line-height: .88;
-  letter-spacing: 2px;
-  margin-bottom: 8px;
+  line-height: .85;
+  letter-spacing: 6px;
+  margin-bottom: 0;
   transition: color .3s;
 }
 .composite-number.elevated { color: var(--red); }
@@ -317,11 +360,11 @@ body {
 /* GAUGE */
 .gauge-section { margin-bottom: 20px; }
 .gauge-track {
-  height: 5px;
-  border-radius: 3px;
+  height: 7px;
+  border-radius: 4px;
   background: var(--bg4);
   overflow: hidden;
-  margin-bottom: 5px;
+  margin-bottom: 8px;
 }
 .gauge-fill {
   height: 100%;
@@ -332,19 +375,20 @@ body {
 .gauge-marker {
   position: absolute;
   right: 0;
-  top: -4px;
-  width: 13px; height: 13px;
+  top: -5px;
+  width: 17px; height: 17px;
   border-radius: 50%;
   background: white;
-  box-shadow: 0 0 8px rgba(255,255,255,.5), 0 0 16px rgba(255,255,255,.2);
+  box-shadow: 0 0 10px rgba(255,255,255,.6), 0 0 20px rgba(255,255,255,.2);
   transform: translateX(50%);
 }
 .gauge-labels {
   display: flex;
   justify-content: space-between;
   font-family: var(--font-m);
-  font-size: 9px;
+  font-size: 10px;
   color: var(--text3);
+  letter-spacing: .02em;
 }
 
 /* STATS MINI */
@@ -380,11 +424,11 @@ body {
 }
 .stat-mini-val {
   font-family: var(--font-num);
-  font-size: 40px;
+  font-size: 38px;
   line-height: 1;
   margin-top: 2px;
 }
-.stat-mini.primary .stat-mini-val { font-size: 40px; } /* same size — let position do the work */
+.stat-mini.primary .stat-mini-val { font-size: 52px; }
 .stat-mini-sub {
   font-family: var(--font-m);
   font-size: 9px;
@@ -795,31 +839,40 @@ body {
       <div class="overview-grid">
         <!-- COMPOSITE HERO -->
         <div class="composite-card">
-          <div class="composite-eyebrow">Global Composite Risk Score</div>
-          <div class="composite-number elevated" id="compNum">68</div>
-          <div class="composite-row">
-            <span class="composite-status status-elevated" id="compStatus">Elevated</span>
-            <span class="composite-delta" id="compDelta">↑ 4.2 pts / 7 days</span>
+          <!-- LEFT: giant number -->
+          <div class="composite-num-col">
+            <div class="composite-eyebrow">Global Composite Risk Score</div>
+            <div class="composite-number elevated" id="compNum">68</div>
+            <div class="composite-row">
+              <span class="composite-status status-elevated" id="compStatus">Elevated</span>
+              <span class="composite-delta" id="compDelta">↑ 4.2 pts / 7 days</span>
+            </div>
           </div>
-          <div style="width:48px;height:1.5px;background:var(--border2);margin:4px 0 16px;border-radius:1px"></div>
-          <div class="gauge-section">
-            <div class="gauge-track">
-              <div class="gauge-fill" id="gaugeBar" style="width:68%">
-                <div class="gauge-marker"></div>
+          <!-- DIVIDER -->
+          <div class="composite-divider"></div>
+          <!-- RIGHT: gauge + stats -->
+          <div class="composite-right-col">
+            <div>
+              <div style="font-family:var(--font-m);font-size:9px;color:var(--text3);letter-spacing:.1em;text-transform:uppercase;margin-bottom:10px">Risk gauge</div>
+              <div class="gauge-section">
+                <div class="gauge-track">
+                  <div class="gauge-fill" id="gaugeBar" style="width:68%">
+                    <div class="gauge-marker"></div>
+                  </div>
+                </div>
+                <div class="gauge-labels">
+                  <span>0 Stable</span><span>25</span><span>50 Elevated</span><span>75 Critical</span><span>100</span>
+                </div>
               </div>
             </div>
-            <div class="gauge-labels">
-              <span>0 Stable</span><span>25</span><span>50 Elevated</span><span>75 Critical</span><span>100</span>
-            </div>
-          </div>
-          <div class="stats-mini">
+            <div class="stats-mini">
               <div class="stat-mini primary">
                 <div class="stat-mini-label">In Stress</div>
                 <div class="stat-mini-val" style="color:var(--red)" id="smStress">—</div>
                 <div class="stat-mini-sub">domains ≥ 60 of 8</div>
               </div>
               <div class="stat-mini">
-                <div class="stat-mini-label">Base score</div>
+                <div class="stat-mini-label">Base Score</div>
                 <div class="stat-mini-val" style="color:var(--text2)" id="smBase">—</div>
                 <div class="stat-mini-sub">pre-multiplier</div>
               </div>
@@ -834,11 +887,12 @@ body {
                 <div class="stat-mini-sub">none triggered</div>
               </div>
             </div>
+          </div>
         </div>
 
-        <!-- COUPLING FEED (right) -->
+        <!-- COUPLING FEED (full width below) -->
         <div class="coupling-card">
-          <div class="card-title">
+          <div class="coupling-card-header card-title">
             Coupling Events
             <span class="card-title-count" id="evCount">— active</span>
           </div>
